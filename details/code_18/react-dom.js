@@ -26707,6 +26707,15 @@
       // TODO: Might be better if `flushPassiveEffects` did not automatically
       // flush synchronous work at the end, to avoid factoring hazards like this.
       flushPassiveEffects();
+
+      /**
+       * 理解：
+       *  1、rootWithPendingPassiveEffects 表示当前存在等待执行的effect
+       *      为什么需要先flushPassiveEffects清空需要执行的副作用，useEffect不是异步的吗？为何commit的时候就同步清空了。
+       *      这是因为：每次commit时，会判断之前有没有没执行的effect（这个没执行的副作用可能是上次commit后没执行完的副作用），所以这次commit时会把之前没弄完的effect执行完。
+       *  2、正常flushPassiveEffects(冲洗副作用)，是在下面scheduleCallback新起调度执行的。
+       *  额外：什么情况会阻止flushPassiveEffects的调度，其实只要优先级比NormalPriority大的，都会阻止副作用执行，但是下一次commit时会优先清空没执行的副作用。
+       */
     } while (rootWithPendingPassiveEffects !== null);
 
     flushRenderPhaseStrictModeWarningsInDEV();
@@ -26768,13 +26777,15 @@
     if ((finishedWork.subtreeFlags & PassiveMask) !== NoFlags || (finishedWork.flags & PassiveMask) !== NoFlags) {
       if (!rootDoesHavePassiveEffects) {
         rootDoesHavePassiveEffects = true;
-        // to store it in pendingPassiveTransitions until they get processed
+        // to stt in pendingPassiveTransitions until they get processed
         // We need to pass this through as an argument to commitRoot
         // because workInProgressTransitions might have changed between
         // the previous render and commit if we throttle the commit
         // with setTimeout
 
         pendingPassiveTransitions = transitions;
+        
+        // 新起调度，异步执行副作用 useEffect
         scheduleCallback$1(NormalPriority, function () {
           flushPassiveEffects(); // This render triggered passive effects: release the root cache pool
           // *after* passive effects fire to avoid freeing a cache pool that may
@@ -26830,6 +26841,7 @@
         markLayoutEffectsStarted(lanes);
       }
 
+      // 会同步触发 useLayoutEffect
       commitLayoutEffects(finishedWork, root, lanes);
 
       {
