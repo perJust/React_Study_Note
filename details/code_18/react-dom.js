@@ -17554,6 +17554,11 @@
     didScheduleRenderPhaseUpdateDuringThisPass = didScheduleRenderPhaseUpdate = true;
     var pending = queue.pending;
 
+    /**
+     * pending 永远指向的是最后一个action
+     * pending.next 永远指向的是第一个action
+     * action3 -> action1 -> action2 -> action3
+     */
     if (pending === null) {
       // This is the first update. Create a circular list.
       update.next = update;
@@ -26187,7 +26192,10 @@
     }
 
     var prevExecutionContext = executionContext;
+
+    // flushSync内部也是自动批处理的，可在内部再嵌套flushSync
     executionContext |= BatchedContext;
+
     var prevTransition = ReactCurrentBatchConfig$3.transition;
     var previousPriority = getCurrentUpdatePriority();
 
@@ -26203,6 +26211,7 @@
     } finally {
       setCurrentUpdatePriority(previousPriority);
       ReactCurrentBatchConfig$3.transition = prevTransition;
+      
       executionContext = prevExecutionContext; // Flush the immediate callbacks that were scheduled during this batch.
       // Note that this will happen even if batchedUpdates is higher up
       // the stack.
